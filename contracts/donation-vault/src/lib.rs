@@ -692,7 +692,9 @@ impl DonationVault {
             allowlist.push_back(token);
         }
 
-        env.storage().instance().set(&DataKey::TokenAllowlist, &allowlist);
+        env.storage()
+            .instance()
+            .set(&DataKey::TokenAllowlist, &allowlist);
         extend_instance_ttl(&env);
         Ok(())
     }
@@ -703,17 +705,17 @@ impl DonationVault {
     pub fn disallow_token(env: Env, token: Address) -> Result<(), Error> {
         require_admin(&env)?;
 
-        let allowlist: Option<Vec<Address>> = env.storage().instance().get(&DataKey::TokenAllowlist);
+        let allowlist: Option<Vec<Address>> =
+            env.storage().instance().get(&DataKey::TokenAllowlist);
         let Some(list) = allowlist else {
             return Ok(());
         };
 
-        let filtered: Vec<Address> = list
-            .iter()
-            .filter(|allowed| allowed != &&token)
-            .collect();
+        let filtered: Vec<Address> = list.iter().filter(|allowed| allowed != &&token).collect();
 
-        env.storage().instance().set(&DataKey::TokenAllowlist, &filtered);
+        env.storage()
+            .instance()
+            .set(&DataKey::TokenAllowlist, &filtered);
         extend_instance_ttl(&env);
         Ok(())
     }
@@ -790,9 +792,7 @@ impl DonationVault {
         env.storage()
             .persistent()
             .set(&DataKey::Stream(stream_id), &stream);
-        let next_stream_id = stream_id
-            .checked_add(1)
-            .ok_or(Error::ArithmeticOverflow)?;
+        let next_stream_id = stream_id.checked_add(1).ok_or(Error::ArithmeticOverflow)?;
         env.storage()
             .instance()
             .set(&DataKey::NextStreamId, &next_stream_id);
@@ -1053,6 +1053,10 @@ impl DonationVault {
             .ok_or(Error::StreamNotFound)?;
 
         stream.donor.require_auth();
+
+        if new_rate == stream.rate {
+            return Ok(());
+        }
 
         let now = env.ledger().timestamp();
         let elapsed = now.saturating_sub(stream.last_update);

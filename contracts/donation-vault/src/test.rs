@@ -2,9 +2,7 @@
 
 use super::*;
 use soroban_sdk::testutils::storage::{Instance as _, Persistent as _};
-use soroban_sdk::testutils::{
-    Address as _, AuthorizedFunction, Ledger, MockAuth, MockAuthInvoke,
-};
+use soroban_sdk::testutils::{Address as _, AuthorizedFunction, Ledger, MockAuth, MockAuthInvoke};
 use soroban_sdk::token::{Client as TokenClient, StellarAssetClient};
 use soroban_sdk::{IntoVal, Symbol, Val, Vec};
 
@@ -84,7 +82,13 @@ fn full_lifecycle_create_accrue_withdraw_cancel() {
         last_event(&s.env),
         (
             (symbol_short!("created"), stream_id).into_val(&s.env),
-            (s.donor.clone(), s.ngo.clone(), s.token.address.clone(), 1_000i128, 10i128)
+            (
+                s.donor.clone(),
+                s.ngo.clone(),
+                s.token.address.clone(),
+                1_000i128,
+                10i128
+            )
                 .into_val(&s.env),
         )
     );
@@ -234,13 +238,9 @@ fn populated_allowlist_enforces_token_gate_and_can_be_cleared() {
     assert!(s.client.is_token_allowed(&s.token.address));
     assert!(!s.client.is_token_allowed(&other_token.address));
 
-    let result = s.client.try_create_stream(
-        &s.donor,
-        &s.ngo,
-        &other_token.address,
-        &1_000,
-        &10,
-    );
+    let result = s
+        .client
+        .try_create_stream(&s.donor, &s.ngo, &other_token.address, &1_000, &10);
     assert_eq!(result, Err(Ok(Error::TokenNotAllowed)));
 
     let stream_id = s
@@ -655,6 +655,29 @@ fn modify_rate_rejects_non_positive_rate() {
     assert_eq!(stream.rate, 10);
     assert_eq!(stream.balance, 1_000);
     assert_eq!(stream.withdrawn, 0);
+}
+
+#[test]
+fn modify_rate_noops_when_rate_is_unchanged() {
+    let s = setup();
+    s.token_admin.mint(&s.donor, &1_000);
+
+    let stream_id = s
+        .client
+        .create_stream(&s.donor, &s.ngo, &s.token.address, &1_000, &10);
+    let before = s.client.get_stream(&stream_id);
+    let last = last_event(&s.env);
+
+    s.env.ledger().with_mut(|l| l.timestamp += 25); // 250 would accrue at the old rate.
+
+    s.client.modify_rate(&stream_id, &10);
+
+    let stream = s.client.get_stream(&stream_id);
+    assert_eq!(stream, before);
+    assert_eq!(stream.balance, before.balance);
+    assert_eq!(stream.withdrawn, before.withdrawn);
+    assert_eq!(s.token.balance(&s.ngo), 0);
+    assert_eq!(last_event(&s.env), last);
 }
 
 #[test]
